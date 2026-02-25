@@ -82,6 +82,10 @@
               <p class="text-xs text-gray-400">Alerts Today</p>
               <p id="dashboardAlertsCount" class="font-medium">0</p>
             </div>
+            <div>
+              <p class="text-xs text-gray-400">Avg Latency</p>
+              <p id="dashboardLatency" class="font-medium text-sm">1m: - | 5m: - | 1h: -</p>
+            </div>
           </div>
         </div>
 
@@ -256,6 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SUPABASE_ANON_KEY = 'sb_publishable_P3c1Q3lJqNyGYobS5wy-EA_xKDOetei';
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const DASHBOARD_AUTH_KEY = 'authUserContext';
+  const API_BASE = window.SENTINEL_API_BASE || '';
 
   const dashboardLocation = document.getElementById('dashboardLocation');
   const dashboardRisk = document.getElementById('dashboardRisk');
@@ -264,6 +269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dashboardUserId = document.getElementById('dashboardUserId');
   const dashboardPlan = document.getElementById('dashboardPlan');
   const dashboardPlanMeta = document.getElementById('dashboardPlanMeta');
+  const dashboardLatency = document.getElementById('dashboardLatency');
   const userStatus = document.getElementById('userStatus');
   const alertsContainer = document.querySelector('.alerts-list');
   const nearbyVerificationList = document.getElementById('nearbyVerificationList');
@@ -333,6 +339,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   let notificationBadge = null;
   let notificationCount = 0;
   let notificationOpen = false;
+  let latencySummaryTimer = null;
+
+  function formatLatencyValue(value) {
+    if (!Number.isFinite(Number(value))) return '-';
+    return `${Math.round(Number(value))}ms`;
+  }
+
+  function updateLatencySummaryLabel(metrics = {}) {
+    if (!dashboardLatency) return;
+    const m1 = metrics?.['1m']?.avg_latency_ms;
+    const m5 = metrics?.['5m']?.avg_latency_ms;
+    const h1 = metrics?.['1h']?.avg_latency_ms;
+    dashboardLatency.textContent = `1m: ${formatLatencyValue(m1)} | 5m: ${formatLatencyValue(m5)} | 1h: ${formatLatencyValue(h1)}`;
+  }
+
+  async function pushLatencyMetric(metricType, valueMs, extra = {}) {
+    if (!Number.isFinite(Number(valueMs)) || Number(valueMs) < 0) return;
+    try {
+      await fetch(`${API_BASE}/api/metrics/latency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metric_type: metricType,
+          value_ms: Number(valueMs),
+          source: 'web-dashboard',
+          ...extra
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to push latency metric', err);
+    }
+  }
+
+  async function loadLatencySummary() {
+    try {
+      const response = await fetch(`${API_BASE}/api/metrics/latency/summary`);
+      const data = await response.json();
+      if (!response.ok || !data?.metrics) return;
+      updateLatencySummaryLabel(data.metrics);
+    } catch (err) {
+      console.warn('Failed to load latency summary', err);
+    }
+  }
 
   function createStableTileLayer(options = {}) {
     const urls = [
@@ -1009,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function updateDashboard(lat,lng){
+    const renderStart = performance.now();
     try {
       const [locationData, riskProfile] = await Promise.all([
         reverseGeocode(lat, lng),
@@ -1022,6 +1072,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Failed to update dashboard summary', err);
       dashboardLocation.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } finally {
+      const renderLatencyMs = Math.max(0, performance.now() - renderStart);
+      pushLatencyMetric('dashboard_render_ms', renderLatencyMs).catch(() => {});
     }
   }
 
@@ -1322,6 +1375,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (alerts.length > 100) alerts.pop();
           updateAlertsList();
           notifyAlert(payload.new);
+          const createdAt = Date.parse(payload?.new?.created_at || '');
+          if (Number.isFinite(createdAt)) {
+            const propagationMs = Math.max(0, Date.now() - createdAt);
+            pushLatencyMetric('alert_propagation_ms', propagationMs, {
+              event_id: payload?.new?.id || null,
+              client_received_at: new Date().toISOString()
+            }).catch(() => {});
+          }
         }
       )
       .on(
@@ -1388,6 +1449,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     submitReport.disabled = true;
     reportStatusMessage.className = 'text-xs text-blue-300 mb-3';
     reportStatusMessage.textContent = 'Submitting report...';
+    const clientSentAtIso = new Date().toISOString();
+    const submitStart = Date.now();
     navigator.geolocation.getCurrentPosition(async pos=>{
       const newReport={
         user_id: currentUser.id,
@@ -1409,6 +1472,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
         await submitReportAPI(newReport);
+        const telemetryLatencyMs = Math.max(0, Date.now() - submitStart);
+        pushLatencyMetric('telemetry_latency_ms', telemetryLatencyMs, {
+          client_sent_at: clientSentAtIso,
+          client_received_at: new Date().toISOString(),
+          metadata: {
+            report_type: newReport.type,
+            severity: newReport.severity
+          }
+        }).catch(() => {});
         reportStatusMessage.className = 'text-xs text-green-400 mb-3';
         reportStatusMessage.textContent = 'Report submitted and queued for reviewer verification.';
         reportDesc.value="";
@@ -1617,6 +1689,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await enableBrowserNotifications();
   await flushQueuedReports();
   await Promise.all([loadReports(), loadAlerts()]);
+  await loadLatencySummary();
+  latencySummaryTimer = setInterval(() => {
+    loadLatencySummary().catch(() => {});
+  }, 30000);
   await loadSubscriptionStatus();
   subscribeToReports();
   subscribeToNearbyReports();
@@ -1638,6 +1714,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (contactsChannel) supabase.removeChannel(contactsChannel);
     if (watchSessionsChannel) supabase.removeChannel(watchSessionsChannel);
     if (typeof stopLocationWatch === 'function') stopLocationWatch();
+    if (latencySummaryTimer) clearInterval(latencySummaryTimer);
   });
   window.addEventListener('online', () => {
     flushQueuedReports().catch(err => console.error('Failed flushing offline queue', err));
