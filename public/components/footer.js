@@ -7,59 +7,53 @@ class CustomFooter extends HTMLElement {
     const authAction = authState.isSignedIn ? ` data-auth-action="logout"` : "";
 
     this.innerHTML = `
-      <footer class="border-t border-gray-700 bg-gray-900/95">
-        <div class="max-w-7xl mx-auto px-6 py-8">
-          <div class="flex flex-col lg:flex-row items-start justify-between gap-6">
-            <div class="max-w-md lg:flex-1">
-              <div class="flex items-center gap-2 text-sm font-semibold text-blue-300 mb-2">
-                <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                Sentinel WatchTower
+      <footer class="border-t border-gray-800 bg-gray-950 relative" style="box-shadow: 0 -18px 40px rgba(2,6,23,0.6);">
+        <div style="position:absolute;top:-1px;left:0;right:0;height:10px;background:linear-gradient(180deg, rgba(59,130,246,0.15), rgba(2,6,23,0));pointer-events:none;"></div>
+        <div class="max-w-7xl mx-auto px-6 py-12">
+          <div class="flex flex-col lg:flex-row items-start justify-between gap-8">
+            <div class="flex items-center gap-3">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <div>
+                <p class="text-sm font-semibold text-blue-300">Sentinel WatchTower</p>
+                <p class="text-xs text-gray-500">Real-time geospatial risk intelligence.</p>
               </div>
-              <p class="text-sm text-gray-400">
-                Real-time geospatial risk intelligence for individuals, families, and organizations.
-              </p>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row lg:flex-nowrap gap-6 text-sm text-gray-300 lg:flex-1 lg:justify-end">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-6 text-sm text-gray-300 w-full lg:w-auto">
+              <div class="space-y-2">
+                <p class="text-xs uppercase tracking-widest text-gray-500">Product</p>
+                <a href="./home.html" class="hover:text-gray-100">Home</a>
+                <a href="./dashboard.html" class="hover:text-gray-100">Dashboard</a>
+                <a href="./risk-log.html" class="hover:text-gray-100">Risk Log</a>
+              </div>
+              <div class="space-y-2">
+                <p class="text-xs uppercase tracking-widest text-gray-500">Plans</p>
+                <a href="./sub.html" class="hover:text-gray-100">Plans</a>
+                <a href="./org-contact.html" class="hover:text-gray-100">Organization Sales</a>
+              </div>
               <div class="space-y-2">
                 <p class="text-xs uppercase tracking-widest text-gray-500">Contact</p>
-                <span class="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gray-800 border border-gray-700 text-gray-300">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.7"/></svg>
-                  support@sentinelwatchtower.com
-                </span>
-                <span class="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gray-800 border border-gray-700 text-gray-300">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4h4l2 4-2 2c1.4 2.6 3.4 4.6 6 6l2-2 4 2v4c-9.4 0-16-6.6-16-16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-                  +234 800 000 0000
-                </span>
+                <span class="text-gray-300">support@sentinelwatchtower.com</span>
+                <span class="text-gray-300">+234 800 000 0000</span>
               </div>
             </div>
 
-            <div class="text-sm text-gray-300 w-full lg:w-auto">
-              <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Social</p>
-              <div class="flex flex-wrap lg:flex-nowrap items-center gap-3">
-                <a href="#" class="hover:text-gray-100 inline-flex items-center gap-2 px-2 py-1 rounded-full border border-gray-700 bg-gray-800">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5L19 19M7 19L19 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                  X
-                </a>
-                <span class="text-gray-700">•</span>
-                <a href="#" class="hover:text-gray-100 inline-flex items-center gap-2 px-2 py-1 rounded-full border border-gray-700 bg-gray-800">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V18M6 6.5V6M10 9V18M10 12.5V12M14 12V18M14 9.5V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                  LinkedIn
-                </a>
-                <span class="text-gray-700">•</span>
-                <a href="#" class="hover:text-gray-100 inline-flex items-center gap-2 px-2 py-1 rounded-full border border-gray-700 bg-gray-800">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="7" r="1" fill="currentColor"/></svg>
-                  Instagram
-                </a>
-              </div>
+            <div class="flex items-center gap-3">
+              <a href="#" class="w-9 h-9 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center hover:text-gray-100" aria-label="Instagram">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17" cy="7" r="1" fill="currentColor"/></svg>
+              </a>
+              <a href="#" class="w-9 h-9 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center hover:text-gray-100" aria-label="X">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5L19 19M7 19L19 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </a>
+              <a href="#" class="w-9 h-9 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center hover:text-gray-100" aria-label="LinkedIn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V18M6 6.5V6M10 9V18M10 12.5V12M14 12V18M14 9.5V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </a>
             </div>
           </div>
 
-          <div class="mt-6 pt-4 border-t border-gray-800 flex flex-wrap justify-between items-center gap-2 text-xs text-gray-500">
+          <div class="mt-8 pt-4 border-t border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs text-gray-500">
             <span>© ${year} Sentinel WatchTower. All rights reserved.</span>
             <div class="flex flex-wrap items-center gap-3">
-              <span>Built for rapid response & verified reporting.</span>
-              <span class="text-gray-700">•</span>
               <a href="./privacy.html" class="hover:text-gray-300">Privacy Policy</a>
               <span class="text-gray-700">•</span>
               <a href="./terms.html" class="hover:text-gray-300">Terms of Service</a>

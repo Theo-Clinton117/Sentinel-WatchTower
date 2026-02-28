@@ -16,8 +16,8 @@ app.use(bodyParser.json({
 // --------------------
 // Supabase REST credentials
 // --------------------
-const SUPABASE_URL = "https://bjmliqvtjjntkgxpwwkp.supabase.co";
-const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"; // replace with your anon/public key
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://bjmliqvtjjntkgxpwwkp.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
 const USERS_TABLE = "users";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
 const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || "";
@@ -602,5 +602,5 @@ app.post("/api/paystack/webhook", (req, res) => {
 // --------------------
 // Start backend server
 // --------------------
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));

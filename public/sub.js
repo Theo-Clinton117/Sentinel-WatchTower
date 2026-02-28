@@ -18,6 +18,8 @@ const PLAN_CONFIG = {
 };
 
 const API_BASE = window.SENTINEL_API_BASE || "";
+const SUPABASE_URL = 'https://bjmliqvtjjntkgxpwwkp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_P3c1Q3lJqNyGYobS5wy-EA_xKDOetei';
 
 const payModal = document.getElementById("payModal");
 const payModalClose = document.getElementById("payModalClose");
@@ -38,6 +40,8 @@ const receiptNote = document.getElementById("receiptNote");
 
 let selectedPlan = null;
 let pendingReference = null;
+let currentUser = null;
+let currentPlan = null;
 
 function formatAmount(amount) {
   return `₦${Number(amount || 0).toLocaleString()}`;
@@ -141,15 +145,13 @@ async function verifyPayment(reference) {
 }
 
 async function recordSubscription(reference, status, plan, amount) {
-  const rawUser = sessionStorage.getItem("authUserContext") || localStorage.getItem("authUserContext");
-  const user = rawUser ? JSON.parse(rawUser) : null;
   const payload = {
     reference,
     status,
     plan,
     amount,
-    user_id: user?.id || null,
-    user_email: user?.email || null
+    user_id: currentUser?.id || null,
+    user_email: currentUser?.email || null
   };
   const response = await fetch(`${API_BASE}/api/subscriptions/record`, {
     method: "POST",
@@ -159,6 +161,56 @@ async function recordSubscription(reference, status, plan, amount) {
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Unable to record subscription.");
   return data;
+}
+
+function setPlanButtonState(planKey, isCurrent) {
+  const button = document.querySelector(`[data-plan="${planKey}"]`);
+  if (!button) return;
+  if (isCurrent) {
+    button.textContent = "Current Plan";
+    button.setAttribute("disabled", "disabled");
+    button.classList.add("cursor-not-allowed");
+  } else {
+    button.removeAttribute("disabled");
+    button.classList.remove("cursor-not-allowed");
+  }
+}
+
+async function hydrateCurrentUser() {
+  const rawUser = sessionStorage.getItem("authUserContext") || localStorage.getItem("authUserContext");
+  const storedUser = rawUser ? JSON.parse(rawUser) : null;
+  if (storedUser?.id) currentUser = storedUser;
+
+  try {
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await supabase.auth.getUser();
+    if (data?.user?.id) {
+      currentUser = {
+        id: data.user.id,
+        email: data.user.email || storedUser?.email || ""
+      };
+    }
+  } catch (_) {
+    // Fallback to locally stored auth context.
+  }
+
+  if (currentUser?.email && payEmail) {
+    payEmail.value = currentUser.email;
+  }
+}
+
+async function hydrateCurrentPlan() {
+  if (!currentUser?.id) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/subscriptions/user/${currentUser.id}`);
+    const data = await response.json();
+    if (!response.ok || !data?.plan) return;
+    currentPlan = data.plan;
+    Object.keys(PLAN_CONFIG).forEach(planKey => setPlanButtonState(planKey, planKey === currentPlan));
+  } catch (_) {
+    // Keep default controls if lookup fails.
+  }
 }
 
 async function hydrateReceiptFromUrl() {
@@ -227,8 +279,22 @@ document.querySelectorAll("[data-plan]").forEach(btn => {
   btn.addEventListener("click", event => {
     const planKey = event.currentTarget.getAttribute("data-plan");
     if (!planKey || !PLAN_CONFIG[planKey]) return;
+    if (planKey === currentPlan) {
+      showStatus("This plan is already active.", "success");
+      return;
+    }
     if (planKey === "free") {
-      alert("Free plan activated. You can send a limited number of alerts per day.");
+      const freeReference = `FREE-${Date.now()}`;
+      recordSubscription(freeReference, "success", "free", 0).catch(() => {});
+      renderReceipt({
+        status: "Free plan active",
+        reference: freeReference,
+        plan: "free",
+        amount: 0,
+        message: "Free tier is active with limited daily alert sends."
+      });
+      currentPlan = "free";
+      Object.keys(PLAN_CONFIG).forEach(key => setPlanButtonState(key, key === currentPlan));
       return;
     }
     if (planKey === "organization") {
@@ -247,3 +313,7 @@ payModal?.addEventListener("click", event => {
 });
 
 hydrateReceiptFromUrl().catch(() => {});
+(async () => {
+  await hydrateCurrentUser();
+  await hydrateCurrentPlan();
+})();

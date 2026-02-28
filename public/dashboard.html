@@ -98,10 +98,10 @@
             <button id="emergencyContactsBtn" class="w-full flex items-center gap-2 rounded-lg bg-blue-600/50 px-4 py-3 text-sm font-medium hover:bg-blue-600 transition">
               <i data-feather="shield"></i> Emergency Contacts
             </button>
-            <button class="w-full flex items-center gap-2 rounded-lg bg-gray-700/50 px-4 py-3 text-sm font-medium hover:bg-gray-700 transition">
+            <button id="safeZonesMapBtn" class="w-full flex items-center gap-2 rounded-lg bg-gray-700/50 px-4 py-3 text-sm font-medium hover:bg-gray-700 transition">
               <i data-feather="map"></i> Safe Zones Map
             </button>
-            <button class="w-full flex items-center gap-2 rounded-lg bg-gray-700/50 px-4 py-3 text-sm font-medium hover:bg-gray-700 transition">
+            <button id="alertPreferencesBtn" class="w-full flex items-center gap-2 rounded-lg bg-gray-700/50 px-4 py-3 text-sm font-medium hover:bg-gray-700 transition">
               <i data-feather="settings"></i> Alert Preferences
             </button>
           </div>
@@ -245,6 +245,46 @@
   </div>
 </div>
 
+<!-- Alert Preferences Modal -->
+<div id="alertPrefsModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center">
+  <div class="bg-gray-800 p-6 rounded-lg w-full max-w-lg border border-gray-700">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">Alert Preferences</h3>
+      <button id="closeAlertPrefsModal" class="px-3 py-1 bg-gray-600 rounded hover:bg-gray-500 text-xs">Close</button>
+    </div>
+    <div class="space-y-4">
+      <label class="block">
+        <span class="text-xs text-gray-400">Minimum push severity</span>
+        <select id="prefsMinSeverity" class="w-full mt-2 p-2 rounded bg-gray-700 text-white">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-200">
+        <input id="prefsPushEnabled" type="checkbox" checked />
+        Enable browser push notifications
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-200">
+        <input id="prefsQuietHoursEnabled" type="checkbox" />
+        Enable quiet hours
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="text-xs text-gray-400">Quiet start</span>
+          <input id="prefsQuietStart" type="time" class="w-full mt-2 p-2 rounded bg-gray-700 text-white" value="22:00" />
+        </label>
+        <label class="block">
+          <span class="text-xs text-gray-400">Quiet end</span>
+          <input id="prefsQuietEnd" type="time" class="w-full mt-2 p-2 rounded bg-gray-700 text-white" value="06:00" />
+        </label>
+      </div>
+      <p id="prefsStatus" class="text-xs text-gray-300 hidden"></p>
+      <button id="saveAlertPrefsBtn" class="w-full px-3 py-2 bg-blue-600 rounded hover:bg-blue-500 text-sm">Save Preferences</button>
+    </div>
+  </div>
+</div>
+
 <!-- Footer -->
 <custom-footer></custom-footer>
 
@@ -280,6 +320,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const routeClearBtn = document.getElementById('routeClearBtn');
   const routeStatus = document.getElementById('routeStatus');
   const emergencyContactsBtn = document.getElementById('emergencyContactsBtn');
+  const safeZonesMapBtn = document.getElementById('safeZonesMapBtn');
+  const alertPreferencesBtn = document.getElementById('alertPreferencesBtn');
   const contactsModal = document.getElementById('contactsModal');
   const closeContactsModal = document.getElementById('closeContactsModal');
   const contactEmailInput = document.getElementById('contactEmailInput');
@@ -294,6 +336,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const watchStatusText = document.getElementById('watchStatusText');
   const watchLinkInput = document.getElementById('watchLinkInput');
   const copyWatchLinkBtn = document.getElementById('copyWatchLinkBtn');
+  const alertPrefsModal = document.getElementById('alertPrefsModal');
+  const closeAlertPrefsModal = document.getElementById('closeAlertPrefsModal');
+  const prefsMinSeverity = document.getElementById('prefsMinSeverity');
+  const prefsPushEnabled = document.getElementById('prefsPushEnabled');
+  const prefsQuietHoursEnabled = document.getElementById('prefsQuietHoursEnabled');
+  const prefsQuietStart = document.getElementById('prefsQuietStart');
+  const prefsQuietEnd = document.getElementById('prefsQuietEnd');
+  const prefsStatus = document.getElementById('prefsStatus');
+  const saveAlertPrefsBtn = document.getElementById('saveAlertPrefsBtn');
 
   const reportBtn = document.getElementById('reportBtn');
   const reportModal = document.getElementById('reportModal');
@@ -307,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ADMIN_DASHBOARD_PATH = './admin-dashboard.html';
   const GRID_PRECISION = 2;
   const NEARBY_RADIUS_KM = 5;
+  const ALERT_PREFS_KEY = 'sentinel_alert_prefs_v1';
   const NIGERIA_BOUNDS = [[4.0, 2.5], [14.8, 15.0]];
 
   let map, userMarker, userAccuracyCircle, heatLayer, routePolyline = null, destinationMarker = null;
@@ -340,6 +392,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   let notificationCount = 0;
   let notificationOpen = false;
   let latencySummaryTimer = null;
+  let alertPrefs = {
+    minSeverity: 'low',
+    pushEnabled: true,
+    quietHoursEnabled: false,
+    quietStart: '22:00',
+    quietEnd: '06:00'
+  };
 
   function formatLatencyValue(value) {
     if (!Number.isFinite(Number(value))) return '-';
@@ -1215,9 +1274,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function loadAlertPreferences() {
+    const raw = localStorage.getItem(ALERT_PREFS_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      alertPrefs = {
+        ...alertPrefs,
+        ...parsed
+      };
+    } catch (_) {
+      // Use defaults on parse errors.
+    }
+  }
+
+  function renderAlertPreferences() {
+    prefsMinSeverity.value = alertPrefs.minSeverity || 'low';
+    prefsPushEnabled.checked = alertPrefs.pushEnabled !== false;
+    prefsQuietHoursEnabled.checked = alertPrefs.quietHoursEnabled === true;
+    prefsQuietStart.value = alertPrefs.quietStart || '22:00';
+    prefsQuietEnd.value = alertPrefs.quietEnd || '06:00';
+  }
+
+  function severityScore(severity) {
+    if (severity === 'High') return 3;
+    if (severity === 'Medium') return 2;
+    return 1;
+  }
+
+  function minSeverityScore(level) {
+    if (level === 'high') return 3;
+    if (level === 'medium') return 2;
+    return 1;
+  }
+
+  function isWithinQuietHours(start, end, now = new Date()) {
+    const [startHour, startMin] = String(start || '22:00').split(':').map(Number);
+    const [endHour, endMin] = String(end || '06:00').split(':').map(Number);
+    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
+    const startMinute = (Number(startHour) * 60) + Number(startMin);
+    const endMinute = (Number(endHour) * 60) + Number(endMin);
+    if (startMinute === endMinute) return false;
+    if (startMinute < endMinute) {
+      return minuteOfDay >= startMinute && minuteOfDay < endMinute;
+    }
+    return minuteOfDay >= startMinute || minuteOfDay < endMinute;
+  }
+
+  function shouldSuppressPushNotification(alert) {
+    if (!alertPrefs.pushEnabled) return true;
+    if (severityScore(alert.severity) < minSeverityScore(alertPrefs.minSeverity)) return true;
+    if (alertPrefs.quietHoursEnabled && isWithinQuietHours(alertPrefs.quietStart, alertPrefs.quietEnd)) return true;
+    return false;
+  }
+
+  function setPrefsStatus(message, tone = 'neutral') {
+    const cls = tone === 'error'
+      ? 'text-xs text-red-400'
+      : tone === 'success'
+        ? 'text-xs text-green-400'
+        : 'text-xs text-gray-300';
+    prefsStatus.className = cls;
+    prefsStatus.textContent = message;
+  }
+
   function notifyAlert(alert) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
+    if (shouldSuppressPushNotification(alert)) return;
     const title = `Sentinel Alert: ${alert.severity}`;
     const body = alert.message || `${alert.type} reported nearby`;
     new Notification(title, { body, tag: alert.id });
@@ -1555,6 +1679,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([loadTrustedContacts(), loadActiveWatchSession()]);
   });
 
+  safeZonesMapBtn.addEventListener('click', () => {
+    const mapCard = document.getElementById('map')?.closest('.bg-gray-800\\/50');
+    if (mapCard) {
+      mapCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const originalOutline = mapCard.style.outline;
+      const originalOffset = mapCard.style.outlineOffset;
+      mapCard.style.outline = '2px solid rgba(74, 222, 128, 0.9)';
+      mapCard.style.outlineOffset = '2px';
+      setTimeout(() => {
+        mapCard.style.outline = originalOutline;
+        mapCard.style.outlineOffset = originalOffset;
+      }, 1200);
+    }
+    if (map && Number.isFinite(userLat) && Number.isFinite(userLng)) {
+      map.flyTo([userLat, userLng], Math.max(14, map.getZoom()), { duration: 0.9 });
+    }
+  });
+
+  alertPreferencesBtn.addEventListener('click', () => {
+    renderAlertPreferences();
+    setPrefsStatus('Tune push alerts for severity and quiet hours.', 'neutral');
+    alertPrefsModal.classList.remove('hidden');
+  });
+
+  closeAlertPrefsModal.addEventListener('click', () => {
+    alertPrefsModal.classList.add('hidden');
+  });
+
+  saveAlertPrefsBtn.addEventListener('click', () => {
+    alertPrefs = {
+      minSeverity: prefsMinSeverity.value,
+      pushEnabled: prefsPushEnabled.checked,
+      quietHoursEnabled: prefsQuietHoursEnabled.checked,
+      quietStart: prefsQuietStart.value || '22:00',
+      quietEnd: prefsQuietEnd.value || '06:00'
+    };
+    localStorage.setItem(ALERT_PREFS_KEY, JSON.stringify(alertPrefs));
+    setPrefsStatus('Preferences saved.', 'success');
+    setTimeout(() => alertPrefsModal.classList.add('hidden'), 550);
+  });
+
+  alertPrefsModal.addEventListener('click', event => {
+    if (event.target === alertPrefsModal) {
+      alertPrefsModal.classList.add('hidden');
+    }
+  });
+
   closeContactsModal.addEventListener('click', () => contactsModal.classList.add('hidden'));
 
   sendContactRequestBtn.addEventListener('click', async () => {
@@ -1685,6 +1856,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const user = await hydrateUserIdentity();
   if (!user) return;
+  loadAlertPreferences();
   ensureNotificationCenterUI();
   await enableBrowserNotifications();
   await flushQueuedReports();

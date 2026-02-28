@@ -6,6 +6,16 @@
   <title>Sentinel WatchTower - Risk Radar</title>
   <link rel="stylesheet" href="./internal-ui.css" />
   <script src="https://unpkg.com/feather-icons"></script>
+  <script>
+    (() => {
+      const key = "sentinelTheme";
+      const stored = localStorage.getItem(key);
+      const theme = stored === "light" || stored === "dark"
+        ? stored
+        : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   
 
   <style>
@@ -18,11 +28,91 @@
     .pulse-glow {
       animation: pulseGlow 1.5s infinite;
     }
+
+    #sentinelIntro {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 36%, rgba(20, 55, 116, 0.2), rgba(2, 8, 28, 0.98) 56%);
+      opacity: 1;
+      transition: opacity 650ms ease;
+    }
+    [data-theme="light"] #sentinelIntro {
+      background: radial-gradient(circle at 50% 36%, rgba(56, 114, 194, 0.18), rgba(238, 245, 255, 0.97) 58%);
+    }
+
+    #sentinelIntro.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .intro-shell {
+      position: relative;
+      width: min(84vw, 560px);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: introRise 1150ms ease both;
+    }
+
+    .intro-logo {
+      width: 100%;
+      height: auto;
+      filter: drop-shadow(0 0 24px rgba(59, 130, 246, 0.3));
+      transform-origin: center;
+      animation: logoPulse 2300ms ease-in-out infinite;
+    }
+
+    .resonance-ring {
+      position: absolute;
+      inset: 10%;
+      border: 2px solid rgba(239, 68, 68, 0.58);
+      border-radius: 999px;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.32), inset 0 0 24px rgba(239, 68, 68, 0.16);
+      animation: redResonance 1950ms ease-out infinite;
+    }
+
+    .resonance-ring:nth-child(2) {
+      animation-delay: 440ms;
+      opacity: 0.72;
+    }
+
+    .resonance-ring:nth-child(3) {
+      animation-delay: 840ms;
+      opacity: 0.52;
+    }
+
+    @keyframes introRise {
+      0% { transform: translateY(24px) scale(.94); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(59,130,246,.24)); }
+      50% { transform: scale(1.018); filter: drop-shadow(0 0 36px rgba(96,165,250,.35)); }
+    }
+
+    @keyframes redResonance {
+      0% { transform: scale(0.78); opacity: .84; }
+      100% { transform: scale(1.32); opacity: 0; }
+    }
   </style>
 </head>
 
 <body class="bg-gray-900 text-gray-100 antialiased">
   <div class="warning-sweep" aria-hidden="true"></div>
+  <div id="sentinelIntro" aria-hidden="true">
+    <div class="intro-shell">
+      <span class="resonance-ring"></span>
+      <span class="resonance-ring"></span>
+      <span class="resonance-ring"></span>
+      <img id="introThemeLogo" src="./assets/sentinel-dark-logo.svg" alt="Sentinel WatchTower" class="intro-logo" />
+    </div>
+  </div>
 
   <!-- Navigation Component -->
   <custom-navbar></custom-navbar>
@@ -140,6 +230,37 @@
   
   <!-- Main JS -->
   <script>
+    function runSentinelOpeningAnimation() {
+      const intro = document.getElementById("sentinelIntro");
+      const introLogo = document.getElementById("introThemeLogo");
+      if (!intro) return;
+      const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+      if (introLogo) {
+        introLogo.src = theme === "light"
+          ? "./assets/sentinel-light-logo.svg"
+          : "./assets/sentinel-dark-logo.svg";
+      }
+      const INTRO_KEY = "sentinelOpeningSeenV3";
+      const alreadySeen = sessionStorage.getItem(INTRO_KEY) || localStorage.getItem(INTRO_KEY);
+      const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (alreadySeen || reduceMotion) {
+        intro.remove();
+        return;
+      }
+
+      const closeIntro = () => {
+        intro.classList.add("hidden");
+        setTimeout(() => intro.remove(), 780);
+      };
+
+      setTimeout(closeIntro, 2500);
+      intro.addEventListener("click", closeIntro, { once: true });
+      sessionStorage.setItem(INTRO_KEY, "1");
+      localStorage.setItem(INTRO_KEY, "1");
+    }
+
+    runSentinelOpeningAnimation();
     feather.replace();
 
     const enableLocationBtn = document.getElementById('enableLocationBtn');

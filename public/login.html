@@ -5,11 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sentinel WatchTower Auth</title>
 <script src="https://unpkg.com/feather-icons"></script>
+<script>
+(() => {
+  const key = "sentinelTheme";
+  const stored = localStorage.getItem(key);
+  const theme = stored === "light" || stored === "dark"
+    ? stored
+    : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
 <style>
 :root{
   --bg:#0f172a; --card:#1e293bcc; --border:#334155;
   --muted:#94a3b8; --text:#f1f5f9; --primary:#2563eb;
+  --input:#1e293b; --overlay:rgba(59,130,246,.15);
   --success:#34d399; --error:#f87171;
+}
+[data-theme="light"]{
+  --bg:#eff5ff; --card:rgba(255,255,255,.94); --border:#c5d3ea;
+  --muted:#64748b; --text:#0f172a; --primary:#1d4ed8;
+  --input:#eff4fc; --overlay:rgba(29,78,216,.18);
+  --success:#059669; --error:#dc2626;
 }
 *{box-sizing:border-box;}
 body{margin:0;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;min-height:100vh;background:var(--bg);color:var(--text);}
@@ -30,17 +47,30 @@ main{flex:1;display:flex;align-items:center;justify-content:center;position:rela
   50%{opacity:0}
   100%{transform:translateX(140%);opacity:0}
 }
-.radial-bg{position:absolute;inset:0;background:radial-gradient(circle at top, rgba(59,130,246,.15), transparent 55%);}
+.radial-bg{position:absolute;inset:0;background:radial-gradient(circle at top, var(--overlay), transparent 55%);}
 .auth-container{position:relative;width:100%;max-width:420px;}
 .auth-card{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px;padding:40px 32px;box-shadow:0 20px 40px rgba(0,0,0,.4);}
+.theme-toggle{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--input);
+  color:var(--text);
+  display:grid;
+  place-items:center;
+}
 .auth-header{text-align:center;margin-bottom:30px;}
 .auth-header h1{margin:16px 0 6px;font-size:22px;}
 .auth-header p{margin:0;font-size:14px;color:var(--muted);}
 .form-wrapper{position:relative;overflow:hidden;transition:height .3s ease;}
 form{position:absolute;width:100%;top:0;transition:all .35s ease;}
 .form-group{margin-bottom:16px;}
-label{font-size:14px;color:#cbd5e1;}
-input,select{width:100%;margin-top:6px;padding:10px 12px;background:#1e293b;border:1px solid var(--border);border-radius:8px;color:white;font-size:14px;}
+label{font-size:14px;color:var(--muted);}
+input,select{width:100%;margin-top:6px;padding:10px 12px;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;}
 .password-wrapper{position:relative;}
 .toggle-password{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);}
 .row{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:20px;}
@@ -61,8 +91,9 @@ button.primary{width:100%;padding:12px;border:none;border-radius:8px;background:
   <div class="radial-bg"></div>
   <div class="auth-container">
     <div class="auth-card">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme"></button>
       <div class="auth-header">
-        <i data-feather="shield" style="width:42px;height:42px;color:#3b82f6;"></i>
+        <img id="authBrandLogo" src="./assets/sentinel-mark-dark.svg" alt="Sentinel logo" style="width:54px;height:54px;object-fit:contain;" />
         <h1 id="formTitle"></h1>
         <p id="formSubtitle"></p>
       </div>
@@ -124,6 +155,26 @@ button.primary{width:100%;padding:12px;border:none;border-radius:8px;background:
           </div>
           <button class="primary" type="submit">Create Account</button>
         </form>
+
+        <!-- RESET -->
+        <form id="resetForm" style="left:100%;">
+          <div id="resetAlert" class="form-alert"></div>
+          <div class="form-group">
+            <label>New Password</label>
+            <div class="password-wrapper">
+              <input id="resetPassword" type="password" minlength="8" required />
+              <i data-feather="eye" class="toggle-password"></i>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <div class="password-wrapper">
+              <input id="resetPasswordConfirm" type="password" minlength="8" required />
+              <i data-feather="eye" class="toggle-password"></i>
+            </div>
+          </div>
+          <button class="primary" type="submit">Update Password</button>
+        </form>
       </div>
       <div class="toggle-area">
         <span id="toggleText"></span>
@@ -150,8 +201,12 @@ const formTitle = document.getElementById("formTitle");
 const formSubtitle = document.getElementById("formSubtitle");
 const loginAlert = document.getElementById("loginAlert");
 const signupAlert = document.getElementById("signupAlert");
+const resetAlert = document.getElementById("resetAlert");
+const resetForm = document.getElementById("resetForm");
 const rememberMe = document.getElementById("rememberMe");
 const roleSelect = document.getElementById("roleSelect");
+const themeToggle = document.getElementById("themeToggle");
+const authBrandLogo = document.getElementById("authBrandLogo");
 const USER_DASHBOARD_PATH = "./dashboard.html";
 const REVIEWER_DASHBOARD_PATH = "./reviewer-dashboard.html";
 const ADMIN_DASHBOARD_PATH = "./admin-dashboard.html";
@@ -181,32 +236,78 @@ async function getUserProfileQuick(userId, timeoutMs = 1800) {
 }
 
 function adjustHeight() {
-  wrapper.style.height = (mode === "login" ? loginForm : signupForm).offsetHeight + "px";
+  const activeForm = mode === "login" ? loginForm : mode === "signup" ? signupForm : resetForm;
+  wrapper.style.height = activeForm.offsetHeight + "px";
+}
+
+function getThemeIcon(theme) {
+  return theme === "light"
+    ? '<i data-feather="moon"></i>'
+    : '<i data-feather="sun"></i>';
+}
+
+function renderThemeToggle() {
+  const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  themeToggle.innerHTML = getThemeIcon(theme);
+  themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  authBrandLogo.src = theme === "light"
+    ? "./assets/sentinel-mark-light.svg"
+    : "./assets/sentinel-mark-dark.svg";
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("sentinelTheme", next);
+  renderThemeToggle();
+  feather.replace();
 }
 
 function render() {
   if(mode === "login"){
     loginForm.style.left = "0%";
     signupForm.style.left = "100%";
+    resetForm.style.left = "100%";
     formTitle.textContent = "Welcome Back";
     formSubtitle.textContent = "Sign in to access your risk dashboard";
     toggleText.textContent = "Don't have an account?";
     toggleBtn.textContent = "Sign up";
+    toggleText.style.display = "";
+    toggleBtn.style.display = "";
   } else {
-    loginForm.style.left = "-100%";
-    signupForm.style.left = "0%";
-    formTitle.textContent = "Create Account";
-    formSubtitle.textContent = "Join Sentinel WatchTower today";
-    toggleText.textContent = "Already have an account?";
-    toggleBtn.textContent = "Sign in";
+    if (mode === "signup") {
+      loginForm.style.left = "-100%";
+      signupForm.style.left = "0%";
+      resetForm.style.left = "100%";
+      formTitle.textContent = "Create Account";
+      formSubtitle.textContent = "Join Sentinel WatchTower today";
+      toggleText.textContent = "Already have an account?";
+      toggleBtn.textContent = "Sign in";
+      toggleText.style.display = "";
+      toggleBtn.style.display = "";
+    } else {
+      loginForm.style.left = "-100%";
+      signupForm.style.left = "100%";
+      resetForm.style.left = "0%";
+      formTitle.textContent = "Reset Password";
+      formSubtitle.textContent = "Set a new password for your account";
+      toggleText.textContent = "";
+      toggleBtn.textContent = "";
+      toggleText.style.display = "none";
+      toggleBtn.style.display = "none";
+    }
   }
   loginAlert.textContent = "";
   signupAlert.textContent = "";
+  resetAlert.textContent = "";
   adjustHeight();
+  renderThemeToggle();
   feather.replace();
 }
 
 toggleBtn.addEventListener("click", () => { mode = (mode === "login" ? "signup" : "login"); render(); });
+themeToggle.addEventListener("click", toggleTheme);
 
 // Password toggle
 document.addEventListener("click", e => {
@@ -389,15 +490,77 @@ window.addEventListener("load",()=>{
     loginForm.querySelector('input[type="email"]').value=saved;
     rememberMe.checked = !!localStorage.getItem("userEmail");
   }
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(window.location.search);
+  if (hashParams.get("type") === "recovery" || queryParams.get("mode") === "reset") {
+    mode = "reset";
+  }
   render();
   window.addEventListener("resize",adjustHeight);
 });
 
-// Forgot password placeholder
-document.getElementById("forgotPassword").addEventListener("click", e=>{
+document.getElementById("forgotPassword").addEventListener("click", async e => {
   e.preventDefault();
-  loginAlert.textContent = "Password reset feature coming soon.";
-  loginAlert.className = "form-alert error";
+  loginAlert.className = "form-alert";
+  const emailInput = loginForm.querySelector('input[type="email"]');
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    loginAlert.textContent = "Enter your email above, then click Forgot password.";
+    loginAlert.className = "form-alert error";
+    return;
+  }
+
+  try {
+    const redirectBase = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${redirectBase}?mode=reset`
+    });
+    if (error) throw error;
+    loginAlert.textContent = "Reset link sent. Check your inbox and spam folder.";
+    loginAlert.className = "form-alert success";
+  } catch (err) {
+    loginAlert.textContent = err?.message || "Unable to send password reset link.";
+    loginAlert.className = "form-alert error";
+  }
+});
+
+resetForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  resetAlert.className = "form-alert";
+  const nextPassword = document.getElementById("resetPassword").value.trim();
+  const confirmPassword = document.getElementById("resetPasswordConfirm").value.trim();
+
+  if (!nextPassword || !confirmPassword) {
+    resetAlert.textContent = "Both fields are required.";
+    resetAlert.className = "form-alert error";
+    return;
+  }
+  if (nextPassword.length < 8) {
+    resetAlert.textContent = "Password must be at least 8 characters.";
+    resetAlert.className = "form-alert error";
+    return;
+  }
+  if (nextPassword !== confirmPassword) {
+    resetAlert.textContent = "Passwords do not match.";
+    resetAlert.className = "form-alert error";
+    return;
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({ password: nextPassword });
+    if (error) throw error;
+    resetAlert.textContent = "Password updated. You can sign in now.";
+    resetAlert.className = "form-alert success";
+    setTimeout(() => {
+      mode = "login";
+      window.history.replaceState({}, "", window.location.pathname);
+      render();
+    }, 850);
+  } catch (err) {
+    resetAlert.textContent = err?.message || "Password update failed.";
+    resetAlert.className = "form-alert error";
+  }
 });
 </script>
 </body>

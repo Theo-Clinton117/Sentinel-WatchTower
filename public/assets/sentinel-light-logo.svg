@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 980" role="img" aria-label="Sentinel WatchTower light logo">
+  <defs>
+    <linearGradient id="bgLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eef4ff"/>
+    </linearGradient>
+    <linearGradient id="beamLight" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#92ccff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#a9dcff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#92ccff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="towerLight" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0e4d88"/>
+      <stop offset="100%" stop-color="#073a6e"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="980" height="980" fill="url(#bgLight)"/>
+  <path d="M348 324 L490 366 L632 324 L632 385 L490 347 L348 385 Z" fill="url(#beamLight)" opacity="0.95"/>
+
+  <path d="M360 612 L620 612 L560 354 L420 354 Z" fill="url(#towerLight)"/>
+  <rect x="447" y="258" width="86" height="96" fill="#083f76"/>
+  <rect x="430" y="240" width="120" height="22" fill="#083f76"/>
+  <path d="M434 240 L490 197 L546 240 Z" fill="#083f76"/>
+  <circle cx="490" cy="185" r="10" fill="#083f76"/>
+  <path d="M334 630 C440 610, 540 610, 646 630 Z" fill="#0a4279"/>
+
+  <text x="490" y="772" text-anchor="middle" font-family="Georgia, Times New Roman, serif" font-size="122" font-weight="700" fill="#083f76">Sentinel.</text>
+  <text x="490" y="844" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" letter-spacing="11" fill="#083f76">WATCHTOWER</text>
+</svg>
