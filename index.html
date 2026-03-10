@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel-Watchtower - Public Safety in Your Pocket</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sentinel Watchtower – Personal Safety & Emergency Alert System</title>
+    <link rel="stylesheet" href="tailwind-output.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -562,9 +562,7 @@
 
     <script>
         window.SENTINEL_CONFIG = window.SENTINEL_CONFIG || {
-            supabaseUrl: 'https://bjmliqvtjjntkgxpwwkp.supabase.co',
-            supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbWxpcXZ0ampudGtneHB3d2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDE2ODEsImV4cCI6MjA4NjkxNzY4MX0.h5R1IB_nGiziXSfBpdlnxDg2bsNEkv8acjLqJJNzty0',
-            waitlistTable: 'waitlist_signups'
+            waitlistEndpoint: '/api/waitlist'
         };
     </script>
     <script src="script.js"></script>

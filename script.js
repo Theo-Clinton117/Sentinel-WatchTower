@@ -3,38 +3,44 @@ const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 const navbar = document.getElementById('navbar');
 
-mobileMenuBtn.addEventListener('click', () => {
-    mobileMenu.classList.toggle('hidden');
-    const icon = mobileMenuBtn.querySelector('i');
-    if (mobileMenu.classList.contains('hidden')) {
-        icon.setAttribute('data-lucide', 'menu');
-    } else {
-        icon.setAttribute('data-lucide', 'x');
-    }
-    lucide.createIcons();
-});
+if (mobileMenuBtn && mobileMenu) {
+    mobileMenuBtn.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+        const icon = mobileMenuBtn.querySelector('i');
+        if (icon) {
+            if (mobileMenu.classList.contains('hidden')) {
+                icon.setAttribute('data-lucide', 'menu');
+            } else {
+                icon.setAttribute('data-lucide', 'x');
+            }
+            lucide.createIcons();
+        }
+    });
+}
 
 // Navbar scroll effect
-let lastScroll = 0;
-window.addEventListener('scroll', () => {
-    const currentScroll = window.pageYOffset;
-    
-    if (currentScroll > 100) {
-        navbar.classList.add('shadow-md');
-        if (currentScroll > lastScroll && currentScroll > 200) {
-            // Scrolling down
-            navbar.style.transform = 'translateY(-100%)';
+if (navbar) {
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+        const currentScroll = window.pageYOffset;
+        
+        if (currentScroll > 100) {
+            navbar.classList.add('shadow-md');
+            if (currentScroll > lastScroll && currentScroll > 200) {
+                // Scrolling down
+                navbar.style.transform = 'translateY(-100%)';
+            } else {
+                // Scrolling up
+                navbar.style.transform = 'translateY(0)';
+            }
         } else {
-            // Scrolling up
+            navbar.classList.remove('shadow-md');
             navbar.style.transform = 'translateY(0)';
         }
-    } else {
-        navbar.classList.remove('shadow-md');
-        navbar.style.transform = 'translateY(0)';
-    }
-    
-    lastScroll = currentScroll;
-});
+        
+        lastScroll = currentScroll;
+    });
+}
 
 // Smooth scroll for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -47,7 +53,9 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 block: 'start'
             });
             // Close mobile menu if open
-            mobileMenu.classList.add('hidden');
+            if (mobileMenu) {
+                mobileMenu.classList.add('hidden');
+            }
         }
     });
 });
@@ -91,27 +99,21 @@ window.addEventListener('scroll', () => {
 function getWaitlistConfig() {
     const config = window.SENTINEL_CONFIG || {};
     return {
-        supabaseUrl: (config.supabaseUrl || '').trim(),
-        supabaseAnonKey: (config.supabaseAnonKey || '').trim(),
-        waitlistTable: (config.waitlistTable || 'waitlist_signups').trim()
+        waitlistEndpoint: (config.waitlistEndpoint || '/api/waitlist').trim()
     };
 }
 
 async function saveWaitlistSignup(payload) {
-    const { supabaseUrl, supabaseAnonKey, waitlistTable } = getWaitlistConfig();
+    const { waitlistEndpoint } = getWaitlistConfig();
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Waitlist is not configured yet. Add your Supabase URL and anon key.');
+    if (!waitlistEndpoint) {
+        throw new Error('Waitlist endpoint is not configured yet.');
     }
 
-    const endpoint = `${supabaseUrl}/rest/v1/${waitlistTable}`;
-    const response = await fetch(endpoint, {
+    const response = await fetch(waitlistEndpoint, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
-            Prefer: 'return=minimal'
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
     });
@@ -140,6 +142,11 @@ function openWaitlistModal() {
     const successDiv = document.getElementById('waitlist-success');
     const formElement = document.getElementById('waitlist-form-modal');
 
+    if (!modal || !modalContent) {
+        window.location.href = 'index.html#download';
+        return;
+    }
+
     // Always reset modal state before opening.
     formElement?.classList.remove('hidden');
     successDiv?.classList.add('hidden');
@@ -159,6 +166,9 @@ function openWaitlistModal() {
 function closeWaitlistModal() {
     const modal = document.getElementById('waitlist-modal');
     const modalContent = document.getElementById('modal-content');
+    if (!modal || !modalContent) {
+        return;
+    }
     modal.classList.add('opacity-0');
     modalContent.classList.remove('scale-100');
     modalContent.classList.add('scale-95');
