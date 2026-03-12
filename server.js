@@ -11,7 +11,7 @@ const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 5);
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
 const SUPABASE_SERVICE_KEY = (process.env.SUPABASE_SERVICE_KEY || '').trim();
 const SUPABASE_WAITLIST_TABLE = (process.env.SUPABASE_WAITLIST_TABLE || 'waitlist_signups').trim();
-const ALLOWED_ORIGIN = (process.env.ALLOWED_ORIGIN || '*').trim();
+const ALLOWED_ORIGIN = (process.env.ALLOWED_ORIGIN || 'https://sentinel-watchtower.com').trim();
 const PORT = Number(process.env.PORT || 3000);
 
 const rateStore = new Map();
@@ -29,6 +29,13 @@ const contentTypes = {
     '.ico': 'image/x-icon',
     '.txt': 'text/plain; charset=utf-8'
 };
+
+function logError(context, error) {
+    const details = error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : { error };
+    console.error(`[${new Date().toISOString()}] ${context}`, details);
+}
 
 function getClientIp(req) {
     const forwarded = req.headers['x-forwarded-for'];
@@ -156,23 +163,25 @@ async function handleWaitlist(req, res) {
         });
 
         if (!supabaseResponse.ok) {
-            let message = 'Unable to join waitlist right now.';
+            let responseBody = '';
             try {
-                const err = await supabaseResponse.json();
-                if (supabaseResponse.status === 409 || err?.code === '23505') {
-                    message = 'This email is already on the waitlist.';
-                } else if (err?.message) {
-                    message = err.message;
-                }
+                responseBody = await supabaseResponse.text();
             } catch (_) {
-                // ignore JSON parse errors
+                // ignore body read errors
             }
-            sendJson(res, supabaseResponse.status || 500, { message });
+            logError('Supabase waitlist error response', {
+                status: supabaseResponse.status,
+                body: responseBody
+            });
+            sendJson(res, supabaseResponse.status || 500, {
+                message: 'Unable to join waitlist right now.'
+            });
             return;
         }
 
         sendJson(res, 200, { ok: true });
     } catch (error) {
+        logError('Supabase waitlist request failed', error);
         sendJson(res, 500, { message: 'Unexpected server error.' });
     }
 }
@@ -204,13 +213,29 @@ async function handleStatic(req, res) {
 }
 
 const server = http.createServer(async (req, res) => {
-    if (req.url?.startsWith('/api/waitlist')) {
-        await handleWaitlist(req, res);
-        return;
+    try {
+        if (req.url?.startsWith('/api/waitlist')) {
+            await handleWaitlist(req, res);
+            return;
+        }
+        await handleStatic(req, res);
+    } catch (error) {
+        logError('Unhandled request error', error);
+        if (!res.headersSent) {
+            if (req.url?.startsWith('/api/')) {
+                sendJson(res, 500, { message: 'Something went wrong. Please try again later.' });
+            } else {
+                res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Something went wrong. Please try again later.');
+            }
+        } else {
+            res.end();
+        }
     }
-    await handleStatic(req, res);
 });
 
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+server.on('error', (error) => {
+    logError('HTTP server error', error);
 });
+
+server.listen(PORT);

@@ -103,6 +103,36 @@ function getWaitlistConfig() {
     };
 }
 
+const REDIRECT_ALLOWLIST = new Set([
+    window.location.origin,
+    'https://sentinel-watchtower.com',
+    'https://www.sentinel-watchtower.com'
+]);
+
+function isAllowedRedirect(targetUrl) {
+    if (!targetUrl) {
+        return false;
+    }
+    try {
+        const parsed = new URL(targetUrl, window.location.href);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return false;
+        }
+        return REDIRECT_ALLOWLIST.has(parsed.origin);
+    } catch (_) {
+        return false;
+    }
+}
+
+function safeRedirect(targetUrl, fallbackUrl = '/') {
+    if (isAllowedRedirect(targetUrl)) {
+        window.location.href = targetUrl;
+        return;
+    }
+    const fallback = isAllowedRedirect(fallbackUrl) ? fallbackUrl : '/';
+    window.location.href = fallback;
+}
+
 async function saveWaitlistSignup(payload) {
     const { waitlistEndpoint } = getWaitlistConfig();
 
@@ -143,7 +173,7 @@ function openWaitlistModal() {
     const formElement = document.getElementById('waitlist-form-modal');
 
     if (!modal || !modalContent) {
-        window.location.href = 'index.html#download';
+        safeRedirect('index.html#download');
         return;
     }
 
