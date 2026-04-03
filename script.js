@@ -103,6 +103,69 @@ function getWaitlistConfig() {
     };
 }
 
+function getCrimeNewsConfig() {
+    const config = window.SENTINEL_CONFIG || {};
+    const configuredEndpoint = (config.crimeNewsEndpoint || '/api/crime-news').trim();
+    const endpointCandidates = [];
+
+    if (configuredEndpoint) {
+        endpointCandidates.push(configuredEndpoint);
+    }
+
+    if (window.location.protocol === 'file:' || window.location.port !== '3000') {
+        endpointCandidates.push('http://127.0.0.1:3000/api/crime-news');
+        endpointCandidates.push('http://localhost:3000/api/crime-news');
+    }
+
+    return {
+        crimeNewsEndpoint: configuredEndpoint,
+        crimeNewsEndpoints: [...new Set(endpointCandidates)],
+        crimeNewsRefreshMs: Number(config.crimeNewsRefreshMs || 5 * 60 * 1000)
+    };
+}
+
+function injectCrimeNavigationLinks() {
+    const isCrimePage = window.location.pathname.endsWith('/crime.html') || window.location.pathname.endsWith('crime.html');
+    const crimeLinkHref = 'crime.html';
+
+    const desktopMenu = document.querySelector('nav .hidden.md\\:flex.items-center.gap-8');
+    if (desktopMenu && !desktopMenu.querySelector('[data-crime-link="desktop"]')) {
+        const aboutGroup = desktopMenu.querySelector('.relative.group');
+        const desktopLink = document.createElement('a');
+        desktopLink.href = crimeLinkHref;
+        desktopLink.dataset.crimeLink = 'desktop';
+        desktopLink.textContent = 'Crime Feed';
+        desktopLink.className = isCrimePage
+            ? 'text-blue-600 dark:text-blue-400 font-semibold transition-colors'
+            : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors';
+        desktopMenu.insertBefore(desktopLink, aboutGroup || null);
+    }
+
+    const mobileMenuContainer = document.querySelector('#mobile-menu .space-y-4');
+    if (mobileMenuContainer && !mobileMenuContainer.querySelector('[data-crime-link="mobile"]')) {
+        const detailsBlock = mobileMenuContainer.querySelector('details.group');
+        const mobileLink = document.createElement('a');
+        mobileLink.href = crimeLinkHref;
+        mobileLink.dataset.crimeLink = 'mobile';
+        mobileLink.textContent = 'Crime Feed';
+        mobileLink.className = isCrimePage
+            ? 'block text-blue-600 dark:text-blue-400 font-semibold py-2 transition-colors'
+            : 'block text-slate-600 dark:text-slate-300 font-medium py-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors';
+        mobileMenuContainer.insertBefore(mobileLink, detailsBlock || null);
+    }
+
+    document.querySelectorAll('footer').forEach((footer) => {
+        const productList = footer.querySelector('ul.space-y-2.text-sm');
+        if (!productList || productList.querySelector('[data-crime-link="footer"]')) {
+            return;
+        }
+        const waitlistItem = Array.from(productList.querySelectorAll('a')).find((link) => link.getAttribute('href') === 'index.html#download')?.parentElement;
+        const item = document.createElement('li');
+        item.innerHTML = `<a href="${crimeLinkHref}" data-crime-link="footer" class="hover:text-blue-400 transition-colors">Crime Feed</a>`;
+        productList.insertBefore(item, waitlistItem || null);
+    });
+}
+
 const REDIRECT_ALLOWLIST = new Set([
     window.location.origin,
     'https://sentinel-watchtower.com',
@@ -336,6 +399,167 @@ function showNotification(message) {
     }, 3000);
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatCrimeTimestamp(value) {
+    if (!value) {
+        return 'Time unavailable';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return 'Time unavailable';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+}
+
+function renderCrimeArticles(articles) {
+    return articles.map((article) => {
+        const imageMarkup = article.imageUrl
+            ? `<img src="${escapeHtml(article.imageUrl)}" alt="${escapeHtml(article.title)}" class="h-52 w-full object-cover">`
+            : `<div class="h-52 w-full bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 flex items-center justify-center">
+                    <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center">
+                        <i data-lucide="shield-alert" class="w-7 h-7 text-blue-300"></i>
+                    </div>
+               </div>`;
+
+        return `
+            <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                ${imageMarkup}
+                <div class="p-6 space-y-4">
+                    <div class="flex items-center justify-between gap-4 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                        <span>${escapeHtml(article.source)}</span>
+                        <span>${escapeHtml(formatCrimeTimestamp(article.publishedAt))}</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white leading-snug">${escapeHtml(article.title)}</h3>
+                    <p class="text-sm leading-7 text-slate-600 dark:text-slate-300">${escapeHtml(article.description || 'No summary was provided for this story.')}</p>
+                    <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+                        Read full story
+                        <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function initCrimeFeed() {
+    const feedRoot = document.getElementById('crime-feed');
+    if (!feedRoot) {
+        return;
+    }
+
+    const statusEl = document.getElementById('crime-feed-status');
+    const lastUpdatedEl = document.getElementById('crime-feed-last-updated');
+    const countEl = document.getElementById('crime-feed-count');
+    const gridEl = document.getElementById('crime-feed-grid');
+    const emptyEl = document.getElementById('crime-feed-empty');
+    const refreshButton = document.getElementById('crime-refresh-button');
+    const { crimeNewsEndpoint, crimeNewsEndpoints, crimeNewsRefreshMs } = getCrimeNewsConfig();
+
+    let isLoading = false;
+
+    async function fetchCrimePayload() {
+        const candidates = (crimeNewsEndpoints && crimeNewsEndpoints.length)
+            ? crimeNewsEndpoints
+            : [crimeNewsEndpoint].filter(Boolean);
+        let lastError = null;
+
+        for (const endpoint of candidates) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        Accept: 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        throw lastError || new Error('No crime news endpoint is configured.');
+    }
+
+    async function loadCrimeNews({ manual = false } = {}) {
+        if (isLoading || (!crimeNewsEndpoint && !crimeNewsEndpoints?.length) || !gridEl || !statusEl || !lastUpdatedEl || !countEl || !emptyEl) {
+            return;
+        }
+
+        isLoading = true;
+        statusEl.textContent = manual ? 'Refreshing live feed...' : 'Loading live Nigerian crime stories...';
+        refreshButton?.setAttribute('disabled', 'disabled');
+        refreshButton?.classList.add('opacity-70', 'cursor-not-allowed');
+
+        if (!gridEl.children.length) {
+            gridEl.innerHTML = Array.from({ length: 6 }).map(() => `
+                <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <div class="skeleton h-52 w-full"></div>
+                    <div class="space-y-4 p-6">
+                        <div class="skeleton h-3 rounded-full"></div>
+                        <div class="skeleton h-6 rounded-full"></div>
+                        <div class="skeleton h-20 rounded-2xl"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        try {
+            const payload = await fetchCrimePayload();
+            const articles = Array.isArray(payload.articles) ? payload.articles : [];
+
+            if (articles.length) {
+                gridEl.innerHTML = renderCrimeArticles(articles);
+                emptyEl.classList.add('hidden');
+            } else {
+                gridEl.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+            }
+
+            countEl.textContent = `${articles.length}`;
+            lastUpdatedEl.textContent = formatCrimeTimestamp(payload.fetchedAt || new Date().toISOString());
+            statusEl.textContent = articles.length
+                ? 'Live feed is active and updating automatically.'
+                : 'No matching stories found right now. We will check again automatically.';
+
+            lucide.createIcons();
+        } catch (_) {
+            statusEl.textContent = 'Live crime news could not be reached. Start the local app server on port 3000 if you are previewing this page statically.';
+            gridEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+        } finally {
+            isLoading = false;
+            refreshButton?.removeAttribute('disabled');
+            refreshButton?.classList.remove('opacity-70', 'cursor-not-allowed');
+        }
+    }
+
+    refreshButton?.addEventListener('click', () => {
+        loadCrimeNews({ manual: true });
+    });
+
+    loadCrimeNews();
+    window.setInterval(() => {
+        loadCrimeNews();
+    }, Math.max(crimeNewsRefreshMs, 60_000));
+}
+
 // Theme Toggle Functionality
 function toggleTheme() {
     const html = document.documentElement;
@@ -373,6 +597,8 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
 
 // Initialize theme immediately
 initTheme();
+injectCrimeNavigationLinks();
+initCrimeFeed();
 
 // Dynamic year in footer
 const yearSpan = document.querySelector('footer .text-sm');
