@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getCrimeNews } from './netlify/functions/_lib/crime-news.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = __dirname;
@@ -63,7 +64,7 @@ function sendJson(res, status, payload, extraHeaders = {}) {
     res.writeHead(status, {
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         ...extraHeaders
     });
@@ -186,6 +187,33 @@ async function handleWaitlist(req, res) {
     }
 }
 
+async function handleCrimeNews(req, res) {
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+            'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        });
+        res.end();
+        return;
+    }
+
+    if (req.method !== 'GET') {
+        sendJson(res, 405, { message: 'Method not allowed.' });
+        return;
+    }
+
+    try {
+        const payload = await getCrimeNews();
+        sendJson(res, 200, payload, {
+            'Cache-Control': 'public, max-age=300'
+        });
+    } catch (error) {
+        logError('Crime news request failed', error);
+        sendJson(res, 500, { message: 'Unable to load live crime news right now.' });
+    }
+}
+
 async function handleStatic(req, res) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     let pathname = decodeURIComponent(requestUrl.pathname);
@@ -216,6 +244,10 @@ const server = http.createServer(async (req, res) => {
     try {
         if (req.url?.startsWith('/api/waitlist')) {
             await handleWaitlist(req, res);
+            return;
+        }
+        if (req.url?.startsWith('/api/crime-news')) {
+            await handleCrimeNews(req, res);
             return;
         }
         await handleStatic(req, res);
