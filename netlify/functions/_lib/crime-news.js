@@ -1,4 +1,3 @@
-const DEFAULT_NEWS_API_KEY = '4b6bad75f7cd4ea9b1072cb206d2d4b4';
 const NEWS_API_KEY = (process.env.NEWS_API_KEY || DEFAULT_NEWS_API_KEY).trim();
 const CACHE_TTL_MS = Number(process.env.CRIME_NEWS_CACHE_TTL_MS || 5 * 60 * 1000);
 const NEWS_API_URL = 'https://newsapi.org/v2/everything';
